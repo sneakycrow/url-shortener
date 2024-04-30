@@ -1,0 +1,11 @@
+{
+  "name": "url-shortener",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "sneakycrow <zach@sneakycrow.dev>",
+  "license": "MIT",
+  "private": "true",
+  "workspaces": [
+    "web"
+  ]
+}
