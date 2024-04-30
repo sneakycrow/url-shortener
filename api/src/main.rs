@@ -1,12 +1,17 @@
 pub mod shortener {
     tonic::include_proto!("shortener");
 }
+pub mod db;
 
+use db::establish_connection;
+use dotenvy::dotenv;
 use shortener::shortener_server::{Shortener, ShortenerServer};
 use shortener::{
-    CreateLinkRequest, DeleteLinkRequest, ReadLinkRequest, ShortenerResponse, UpdateLinkRequest,
+    CreateLinkRequest, DeleteLinkRequest, LinkResponseStatus, ReadLinkRequest, ShortenerResponse,
+    UpdateLinkRequest,
 };
 use tonic::{transport::Server, Request, Response, Status};
+use uuid::Uuid;
 
 #[derive(Default)]
 pub struct SneakyCrowShortener {}
@@ -15,15 +20,58 @@ pub struct SneakyCrowShortener {}
 impl Shortener for SneakyCrowShortener {
     async fn create(
         &self,
-        _req: Request<CreateLinkRequest>,
+        req: Request<CreateLinkRequest>,
     ) -> Result<Response<ShortenerResponse>, Status> {
-        todo!("implement")
+        let target_url = req.into_inner().target_url;
+        let mut conn = db::establish_connection();
+        match db::models::get_link_by_url(&mut conn, &target_url) {
+            // Link already exists, return it
+            Some(link) => {
+                let proto_link = link.into_proto();
+                let response = ShortenerResponse {
+                    link: Some(proto_link),
+                    status: LinkResponseStatus::Found.into(),
+                };
+
+                Ok(Response::new(response))
+            }
+            // Link doesn't exist, create it
+            None => {
+                // If the link wasn't found by it's url, create it
+                let db_link: db::models::Link = db::models::create_link(&mut conn, &target_url);
+                let proto_link = db_link.into_proto();
+                let response = ShortenerResponse {
+                    link: Some(proto_link),
+                    status: LinkResponseStatus::Created.into(),
+                };
+
+                Ok(Response::new(response))
+            }
+        }
     }
     async fn read(
         &self,
-        _req: Request<ReadLinkRequest>,
+        req: Request<ReadLinkRequest>,
     ) -> Result<Response<ShortenerResponse>, Status> {
-        todo!("implement")
+        let target_link_id = req.into_inner().id;
+        let target_link_uuid = match Uuid::parse_str(&target_link_id) {
+            Ok(uuid) => uuid,
+            Err(_) => return Err(Status::invalid_argument("Valid UUID not provided")),
+        };
+        let mut conn = establish_connection();
+        let found_link = db::models::get_link_by_id(&mut conn, target_link_uuid);
+        match found_link {
+            Some(link) => {
+                let proto_link = link.into_proto();
+                let response = ShortenerResponse {
+                    link: Some(proto_link),
+                    status: LinkResponseStatus::Found.into(),
+                };
+
+                Ok(Response::new(response))
+            }
+            None => Err(Status::not_found("Could not find link by id")),
+        }
     }
     async fn update(
         &self,
@@ -43,6 +91,11 @@ impl Shortener for SneakyCrowShortener {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse().unwrap();
     let shortener_service = SneakyCrowShortener::default();
+
+    match dotenv() {
+        Err(_) => println!("Could not load .env file"),
+        Ok(_) => println!("Successfully loaded .env"),
+    };
 
     println!("ShortenerServer listening on {}", addr);
 
