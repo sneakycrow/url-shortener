@@ -5,6 +5,7 @@ use crate::shortener::{
     UpdateLinkRequest,
 };
 use tonic::{Request, Response, Status};
+use url::Url;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -16,10 +17,12 @@ impl Shortener for SneakyCrowShortener {
         &self,
         req: Request<CreateLinkRequest>,
     ) -> Result<Response<ShortenerResponse>, Status> {
-        let target_url = req.into_inner().target_url;
-        // TODO: Validate target url is a valid url
+        let target_url = match Url::parse(&req.into_inner().target_url) {
+            Ok(valid_url) => valid_url,
+            Err(_) => return Err(Status::invalid_argument("Invalid URL given")),
+        };
         let mut conn = establish_connection();
-        match models::get_link_by_url(&mut conn, &target_url) {
+        match models::get_link_by_url(&mut conn, &target_url.to_string()) {
             // Link already exists, return it
             Some(link) => {
                 let proto_link = link.into_proto();
@@ -33,7 +36,7 @@ impl Shortener for SneakyCrowShortener {
             // Link doesn't exist, create it
             None => {
                 // If the link wasn't found by it's url, create it
-                let db_link: models::Link = models::create_link(&mut conn, &target_url);
+                let db_link: models::Link = models::create_link(&mut conn, &target_url.to_string());
                 let proto_link = db_link.into_proto();
                 let response = ShortenerResponse {
                     link: Some(proto_link),
