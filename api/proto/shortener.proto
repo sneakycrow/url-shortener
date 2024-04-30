@@ -28,8 +28,9 @@ enum LinkResponseStatus {
 // A generic message containing information about a shortlink
 message Link {
   string id = 1;
-  string created_at = 2;
-  string target_url = 3;
+  string target_url = 2;
+  string created_at = 3;
+  string updated_at = 4;
 };
 
 // A request for creating a shortlink for the target url
