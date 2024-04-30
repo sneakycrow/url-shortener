@@ -17,11 +17,14 @@ impl Shortener for SneakyCrowShortener {
         &self,
         req: Request<CreateLinkRequest>,
     ) -> Result<Response<ShortenerResponse>, Status> {
+        // Parse and validate link from request
         let target_url = match Url::parse(&req.into_inner().target_url) {
             Ok(valid_url) => valid_url,
             Err(_) => return Err(Status::invalid_argument("Invalid URL given")),
         };
+        // Establish DB connections
         let mut conn = establish_connection();
+        // Check if link with target url already exists
         match models::get_link_by_url(&mut conn, &target_url.to_string()) {
             // Link already exists, return it
             Some(link) => {
