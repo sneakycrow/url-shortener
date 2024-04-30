@@ -30,7 +30,7 @@ message Link {
   string id = 1;
   string target_url = 2;
   string created_at = 3;
-  string updated_at = 4;
+  optional string updated_at = 4;
 };
 
 // A request for creating a shortlink for the target url
