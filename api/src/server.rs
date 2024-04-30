@@ -17,6 +17,7 @@ impl Shortener for SneakyCrowShortener {
         req: Request<CreateLinkRequest>,
     ) -> Result<Response<ShortenerResponse>, Status> {
         let target_url = req.into_inner().target_url;
+        // TODO: Validate target url is a valid url
         let mut conn = establish_connection();
         match models::get_link_by_url(&mut conn, &target_url) {
             // Link already exists, return it
