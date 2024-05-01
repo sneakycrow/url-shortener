@@ -1,0 +1,1 @@
+// This should redirect the user to the loaded url
